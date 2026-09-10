@@ -4,7 +4,7 @@ FROM n8nio/n8n:1.75.2
 ENV GENERIC_TIMEZONE=America/New_York
 ENV TZ=America/New_York
 
-# Database & Memory Configuration for 512MB Free Tier
+# Database, Task Runner & Memory Optimization for 512MB Free Tier
 ENV DB_TYPE=sqlite
 ENV N8N_DEFAULT_BINARY_DATA_MODE=filesystem
 ENV NODE_OPTIONS="--max-old-space-size=256"
@@ -12,3 +12,4 @@ ENV N8N_METRICS=false
 ENV N8N_HIRING_BANNER=false
 ENV N8N_VERSION_NOTIFICATIONS_ENABLED=false
 ENV N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+ENV N8N_RUNNERS_ENABLED=false
