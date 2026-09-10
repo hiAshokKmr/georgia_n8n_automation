@@ -1,0 +1,11 @@
+# Local environment
+.env
+.env.local
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# n8n local data
+.n8n/
+*.log
