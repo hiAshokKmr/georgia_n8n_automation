@@ -1,0 +1,114 @@
+{
+  "name": "Georgia Live Crash to Django Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ],
+      "id": "schedule-trigger",
+      "name": "Every 5 Minutes"
+    },
+    {
+      "parameters": {
+        "url": "https://511ga.org/map/mapIcons/Incidents",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "http-scraper",
+      "name": "Scrape 511GA Live Map"
+    },
+    {
+      "parameters": {
+        "jsCode": "const responseData = $input.first().json.body || $input.first().json;\nconst items = responseData.item2 || (Array.isArray(responseData) ? responseData : []);\n\nconst scrapedCrashes = [];\n\nfor (const item of items) {\n  const incId = item.itemId || `inc_${Date.now()}`;\n  const coords = item.location || [];\n  const lat = coords[0] || 0;\n  const lon = coords[1] || 0;\n\n  scrapedCrashes.push({\n    json: {\n      incident_id: String(incId),\n      title: `Georgia Live Incident #${incId}`,\n      location: `Lat: ${lat}, Lon: ${lon}`,\n      latitude: lat,\n      longitude: lon,\n      description: `Live crash alert at Georgia coordinates (${lat}, ${lon})`,\n      timestamp: new Date().toISOString(),\n      source: 'n8n Live Web Scraper'\n    }\n  });\n}\n\nreturn scrapedCrashes.length > 0 ? scrapedCrashes : [{ json: { status: 'No active incidents' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "id": "code-extractor",
+      "name": "Extract Crash Coordinates"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/webhook/crash/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        300
+      ],
+      "id": "send-django-webhook",
+      "name": "Send to Django Webhook"
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Scrape 511GA Live Map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape 511GA Live Map": {
+      "main": [
+        [
+          {
+            "node": "Extract Crash Coordinates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Crash Coordinates": {
+      "main": [
+        [
+          {
+            "node": "Send to Django Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

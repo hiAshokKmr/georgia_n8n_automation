@@ -1,0 +1,86 @@
+{
+  "name": "Georgia Live Car Crash Monitor (Native Nodes)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ],
+      "id": "schedule-trigger",
+      "name": "Every 5 Minutes"
+    },
+    {
+      "parameters": {
+        "url": "https://www.wsbtv.com/arc/outboundfeeds/rss/?outputType=xml",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ],
+      "id": "http-request",
+      "name": "Fetch Live Traffic Feed"
+    },
+    {
+      "parameters": {
+        "jsCode": "const responseText = $input.first().json.body || $input.first().json.data || '';\nconst itemRegex = /<item>([\\s\\S]*?)<\\/item>/gi;\nconst crashes = [];\nlet match;\n\nwhile ((match = itemRegex.exec(responseText)) !== null) {\n  const itemXml = match[1];\n  const getTag = (tag) => {\n    const m = new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>', 'i').exec(itemXml);\n    return m ? m[1].replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '').trim() : '';\n  };\n  \n  const title = getTag('title');\n  const desc = getTag('description').replace(/<[^>]+>/g, '');\n  const link = getTag('link');\n  const pubDate = getTag('pubDate');\n  \n  const combined = (title + ' ' + desc).toLowerCase();\n  if (['crash', 'accident', 'wreck', 'collision', 'multi-vehicle'].some(k => combined.includes(k))) {\n    let location = 'Georgia, USA';\n    if (combined.includes('i-75')) location = 'I-75, Georgia';\n    else if (combined.includes('i-85')) location = 'I-85, Georgia';\n    else if (combined.includes('i-285')) location = 'I-285 (Perimeter), Atlanta, GA';\n    else if (combined.includes('i-95')) location = 'I-95, Georgia';\n    else if (combined.includes('i-20')) location = 'I-20, Georgia';\n\n    crashes.push({\n      json: {\n        incident_id: link || `crash_${Date.now()}`,\n        title: title,\n        location: location,\n        description: desc,\n        timestamp: pubDate,\n        source: 'WSB-TV Atlanta Live Feed'\n      }\n    });\n  }\n}\n\nreturn crashes.length > 0 ? crashes : [{ json: { status: 'No new crashes detected at this interval' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "id": "code-parser",
+      "name": "Parse & Extract Crashes"
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Live Traffic Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Live Traffic Feed": {
+      "main": [
+        [
+          {
+            "node": "Parse & Extract Crashes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
